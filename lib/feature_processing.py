@@ -4,6 +4,40 @@ import numpy as np
 from collections import Counter
 from scipy.stats import entropy
 import math
+import pandas as pd
+
+
+def process(data):
+    data.drop(['host_name'], axis=1, inplace =True)
+
+    # Fill last review with earliest
+    data['last_review'] = pd.to_datetime(data['last_review'],infer_datetime_format=True)
+    earliest = min(data['last_review'])
+    data['last_review'] = data['last_review'].fillna(earliest)
+    data['last_review'] = data['last_review'].apply(lambda x: x.toordinal() - earliest.toordinal())
+
+    data = data[data['name'].notna()]
+    data.fillna({'reviews_per_month':0}, inplace=True)
+
+    data = data[np.log1p(data['price']) < 8]
+    data = data[np.log1p(data['price']) > 3]
+    data['price'] = np.log1p(data['price'])
+
+    ## Feature engineering
+    data.drop(['id', 'name', 'host_id'], axis=1, inplace =True)
+
+    data['all_year_avail'] = data['availability_365']>353
+    data['low_avail'] = data['availability_365']< 12
+    data['no_reviews'] = data['reviews_per_month']==0
+    data.drop(['availability_365'], axis=1, inplace =True)
+
+    ## Categorical and Numerican
+    categorical_features = data.select_dtypes(include=['object'])
+    categorical_features_processed = pd.get_dummies(categorical_features)
+    numerical_features =  data.select_dtypes(exclude=['object'])
+    combined_df = pd.concat([numerical_features, categorical_features_processed], axis=1)
+
+    return combined_df
 
 
 def gini(array):
@@ -13,19 +47,19 @@ def gini(array):
     if np.amin(array) < 0:
         # Values cannot be negative:
         array -= np.amin(array)
-        
+
     # Values cannot be 0:
     array += 0.0000001
-    
+
     # Values must be sorted:
     array = np.sort(array)
-    
+
     # Index per array element:
     index = np.arange(1,array.shape[0]+1)
-    
+
     # Number of array elements:
     n = array.shape[0]
-    
+
     # Gini coefficient:
     return ((np.sum((2 * index - n  - 1) * array)) / (n * np.sum(array)))
 
