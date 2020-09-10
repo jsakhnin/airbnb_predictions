@@ -6,35 +6,61 @@ from scipy.stats import entropy
 import math
 import pandas as pd
 
-
-def process(data):
-    data.drop(['host_name'], axis=1, inplace =True)
+def clean(data):
+    newData = data.copy()
+    newData.drop(['host_name'], axis=1, inplace =True)
 
     # Fill last review with earliest
-    data['last_review'] = pd.to_datetime(data['last_review'],infer_datetime_format=True)
-    earliest = min(data['last_review'])
-    data['last_review'] = data['last_review'].fillna(earliest)
-    data['last_review'] = data['last_review'].apply(lambda x: x.toordinal() - earliest.toordinal())
+    newData['last_review'] = pd.to_datetime(newData['last_review'],infer_datetime_format=True)
+    earliest = min(newData['last_review'])
+    newData['last_review'] = newData['last_review'].fillna(earliest)
+    newData['last_review'] = newData['last_review'].apply(lambda x: x.toordinal() - earliest.toordinal())
 
-    data = data[data['name'].notna()]
-    data.fillna({'reviews_per_month':0}, inplace=True)
+    newData = newData[newData['name'].notna()]
+    newData.drop(['id', 'name', 'host_id'], axis=1, inplace =True)
 
-    data = data[np.log1p(data['price']) < 8]
-    data = data[np.log1p(data['price']) > 3]
-    data['price'] = np.log1p(data['price'])
-
-    ## Feature engineering
-    data.drop(['id', 'name', 'host_id'], axis=1, inplace =True)
-
-    data['all_year_avail'] = data['availability_365']>353
-    data['low_avail'] = data['availability_365']< 12
-    data['no_reviews'] = data['reviews_per_month']==0
-    data.drop(['availability_365'], axis=1, inplace =True)
+    newData.fillna({'reviews_per_month':0}, inplace=True)
 
     ## Categorical and Numerican
-    categorical_features = data.select_dtypes(include=['object'])
+    categorical_features = newData.select_dtypes(include=['object'])
     categorical_features_processed = pd.get_dummies(categorical_features)
-    numerical_features =  data.select_dtypes(exclude=['object'])
+    numerical_features =  newData.select_dtypes(exclude=['object'])
+    combined_df = pd.concat([numerical_features, categorical_features_processed], axis=1)
+
+    return combined_df
+
+def process(data):
+    newData = data.copy()
+    print(newData.shape)
+
+    newData.drop(['host_name'], axis=1, inplace =True)
+    print(newData.shape)
+
+
+    # Fill last review with earliest
+    newData['last_review'] = pd.to_datetime(newData['last_review'],infer_datetime_format=True)
+    earliest = min(newData['last_review'])
+    newData['last_review'] = newData['last_review'].fillna(earliest)
+    newData['last_review'] = newData['last_review'].apply(lambda x: x.toordinal() - earliest.toordinal())
+
+    newData = newData[newData['name'].notna()]
+    newData.fillna({'reviews_per_month':0}, inplace=True)
+
+    newData.drop(['id', 'name', 'host_id'], axis=1, inplace =True)
+
+    ## Feature engineering
+    newData = newData[np.log1p(newData['price']) < 8]
+    newData = newData[np.log1p(newData['price']) > 3]
+    newData['price'] = np.log1p(newData['price'])
+    newData['all_year_avail'] = newData['availability_365']>353
+    newData['low_avail'] = newData['availability_365']< 12
+    newData['no_reviews'] = newData['reviews_per_month']==0
+    newData.drop(['availability_365'], axis=1, inplace =True)
+
+    ## Categorical and Numerican
+    categorical_features = newData.select_dtypes(include=['object'])
+    categorical_features_processed = pd.get_dummies(categorical_features)
+    numerical_features =  newData.select_dtypes(exclude=['object'])
     combined_df = pd.concat([numerical_features, categorical_features_processed], axis=1)
 
     return combined_df
